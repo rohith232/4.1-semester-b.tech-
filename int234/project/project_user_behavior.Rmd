@@ -1,0 +1,226 @@
+---
+title: "Mobile Device Usage and User Behavior Classification"
+author: "Rohith Reddy"
+date: "2024-11-07"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Introduction:
+
+In this project, we explore a Mobile Device Usage and User Behavior  Dataset to predict user behavior classes using multiple machine learning models. We implement four different classification models: Random Forest, K-Nearest Neighbors (KNN), and Support Vector Machine (SVM) and Naive Bayes followed by performance evaluation and comparison.
+
+# Load necessary libraries
+```{r}
+library(randomForest)
+library(caret)
+library(class)
+library(e1071)
+library(ggplot2)
+library(reshape2)
+library(gmodels)
+library(caTools)
+
+
+```
+## 1. Data Loading and Preprocessing
+```{r}
+# Load the dataset
+data <- read.csv("C:/Users/Dell/Desktop/int234/project/user_behavior_dataset.csv")
+colnames(data)
+
+
+```
+ <h3>Loading Dataset of User Behavior to perform predictive analysis and see the result of different classifications models to find that which model is giving high accuracy.</h3>
+```{r}
+# Ensure 'User.Behavior.Class' is a factor
+data$User.Behavior.Class <- as.factor(data$User.Behavior.Class)
+data <- data[sapply(data, is.atomic)]
+#Key Features/Structure of the data
+str(data)
+
+```
+Split Dataset into Training and Testing Sets
+```{r}
+set.seed(123) 
+train_indices <- createDataPartition(data$User.Behavior.Class, p = 0.7, list = FALSE)
+trainData <- data[train_indices, ]
+testData <- data[-train_indices, ]
+
+```
+## 2. Model Training and Evaluation
+
+<h3>2.1 Random Forest Model</h3>
+```{r}
+rf_model <- randomForest(User.Behavior.Class ~ ., data = trainData, ntree = 500, mtry = 3, importance = TRUE)
+print(rf_model)
+
+
+
+```
+   <h4>2.1.1 Analysis of Accuracy of KNN model</h4>
+```{r}
+# Predict and evaluate
+predictions_rf <- predict(rf_model, newdata = testData)
+conf_matrix_rf <- table(testData$User.Behavior.Class, predictions_rf)
+accuracy_rf <- sum(diag(conf_matrix_rf)) / sum(conf_matrix_rf)
+cat("Random Forest Accuracy:", accuracy_rf * 100, "%\n")
+```
+<h4> 2.1.2 Variable Importance Plot</h4>
+```{r}
+varImpPlot(rf_model, main = "Variable Importance for Random Forest")
+
+```
+<h2> 2.2 K-Nearest Neighbors (KNN) Model</h2>
+<h3> 2.2.1 Preprocess: Normalize Features and Add Noise</h3>
+```{r}
+normalize <- function(x) { (x - min(x)) / (max(x) - min(x)) }
+numeric_columns <- sapply(data, is.numeric)
+data_n <- as.data.frame(lapply(data[, numeric_columns], normalize))
+data_n$User.Behavior.Class <- data$User.Behavior.Class
+set.seed(123)
+noise <- matrix(rnorm(n = nrow(data_n) * (ncol(data_n) - 1), mean = 0, sd = 0.1), nrow = nrow(data_n))
+data_n[, -ncol(data_n)] <- data_n[, -ncol(data_n)] + noise
+# Summary of data with noise
+summary(data_n)
+
+
+```
+<h3> 2.2.2 Train-Test Split and KNN Model</h3>
+```{r}
+train_index <- sample(1:nrow(data_n), 0.7 * nrow(data_n))
+data_train <- data_n[train_index, ]
+data_test <- data_n[-train_index, ]
+train_labels <- data_n$User.Behavior.Class[train_index]
+test_labels <- data_n$User.Behavior.Class[-train_index]
+
+k <- 50  # Adjust as needed
+test_pred_knn <- knn(train = data_train[, -ncol(data_train)], test = data_test[, -ncol(data_test)], cl = train_labels, k = k)
+conf_matrix_knn <- table(test_labels, test_pred_knn)
+conf_matrix_knn
+```
+<h3>2.2.3 Analysis of Accuracy of KNN model.</h3>
+```{r}
+accuracy_knn <- sum(test_pred_knn == test_labels) / length(test_labels)
+cat("KNN Accuracy:", round(accuracy_knn * 100, 2), "%\n")
+
+```
+<h2>2.3 Naive Bayes Model with Feature Reduction </h2>
+<h3>2.3.1 Features and Normalization </h3>
+```{r}
+data_reduced <- data_n[, 1:2]  # Example: Adjust based on feature selection
+split <- sample.split(data$User.Behavior.Class, SplitRatio = 0.7)
+train_set <- subset(data_reduced, split == TRUE)
+test_set <- subset(data_reduced, split == FALSE)
+train_labels <- subset(data$User.Behavior.Class, split == TRUE)
+test_labels <- subset(data$User.Behavior.Class, split == FALSE)
+```
+<h3>2.3.2 Train and Evaluate Naive Bayes Model </h3>
+```{r}
+nb_model <- naiveBayes(train_set, train_labels)
+pred_labels_nb <- predict(nb_model, test_set)
+conf_matrix_nb <- table(test_labels, pred_labels_nb)
+conf_matrix_nb
+```
+<h3>2.3.3 Analysis of Accuracy of Naive Bayes Model.</h3>
+```{r}
+accuracy_nb <- sum(diag(conf_matrix_nb)) / sum(conf_matrix_nb)
+cat("Naive Bayes Accuracy with reduced features:", round(accuracy_nb * 100, 2), "%\n")
+```
+<h2>2.4 Support Vector Machine (SVM)</h2>
+<h3>2.4.1 Train and Evaluate SVM Model </h3>
+```{r}
+svm_model <- svm(User.Behavior.Class ~ ., data = trainData, kernel = "radial", cost = 0.09, scale = TRUE)
+predictions_svm <- predict(svm_model, newdata = testData)
+conf_matrix_svm <- table(testData$User.Behavior.Class, predictions_svm)
+conf_matrix_svm
+```
+<h3>2.4.2 Analysis of Accuracy of SVM </h3>
+```{r}
+accuracy_svm <- sum(diag(conf_matrix_svm)) / sum(conf_matrix_svm)
+cat("SVM Accuracy:", accuracy_svm * 100, "%\n")
+```
+<h1>3.Visualizations of Confusion Matrices</h1>
+<h2>3.1 Random Forest Confusion Matrix</h2>
+```{r}
+conf_matrix_rf_df <- as.data.frame(conf_matrix_rf)
+colnames(conf_matrix_rf_df) <- c("Actual", "Predicted", "Count")
+
+ggplot(data = conf_matrix_rf_df, aes(x = Actual, y = Predicted)) +
+  geom_tile(aes(fill = Count), color = "white") +
+  scale_fill_gradient(low = "white", high = "blue") +
+  geom_text(aes(label = Count), vjust = 1) +
+  labs(title = "Confusion Matrix for Random Forest", x = "Actual", y = "Predicted") +
+  theme_minimal()
+
+```
+<h2>3.2 KNN Confusion Matrix</h2>
+```{r}
+conf_matrix_knn_df <- as.data.frame(conf_matrix_knn)
+colnames(conf_matrix_knn_df) <- c("Actual", "Predicted", "Count")
+
+ggplot(data = conf_matrix_knn_df, aes(x = Actual, y = Predicted)) +
+  geom_tile(aes(fill = Count), color = "white") +
+  scale_fill_gradient(low = "white", high = "blue") +
+  geom_text(aes(label = Count), vjust = 1) +
+  labs(title = "Confusion Matrix for KNN", x = "Actual", y = "Predicted") +
+  theme_minimal()
+
+```
+<h2>3.3 Naive Bayes Confusion Matrix</h2>
+```{r}
+conf_matrix_nb_df <- as.data.frame(conf_matrix_nb)
+colnames(conf_matrix_nb_df) <- c("Actual", "Predicted", "Count")
+
+ggplot(data = conf_matrix_nb_df, aes(x = Actual, y = Predicted)) +
+  geom_tile(aes(fill = Count), color = "white") +
+  scale_fill_gradient(low = "white", high = "blue") +
+  geom_text(aes(label = Count), vjust = 1) +
+  labs(title = "Confusion Matrix for Naive Bayes", x = "Actual", y = "Predicted") +
+  theme_minimal()
+
+```
+<h2>3.4 SVM Confusion Matrix</h2>
+```{r}
+conf_matrix_svm_df <- as.data.frame(conf_matrix_svm)
+colnames(conf_matrix_svm_df) <- c("Actual", "Predicted", "Count")
+
+ggplot(data = conf_matrix_svm_df, aes(x = Actual, y = Predicted)) +
+  geom_tile(aes(fill = Count), color = "white") +
+  scale_fill_gradient(low = "white", high = "blue") +
+  geom_text(aes(label = Count), vjust = 1) +
+  labs(title = "Confusion Matrix for SVM", x = "Actual", y = "Predicted") +
+  theme_minimal()
+
+```
+
+
+
+
+
+
+
+<h1>4. Model Comparison</h1>
+<h2>4.1 Accuracy Comparison of Models</h2>
+```{r}
+accuracies <- data.frame(
+  Model = c("KNN", "Naive Bayes", "Random Forest", "SVM"),
+  Accuracy = c(accuracy_knn, accuracy_nb, accuracy_rf, accuracy_svm)
+)
+
+ggplot(data = accuracies, aes(x = Model, y = Accuracy, fill = Model)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(Accuracy * 100, 2), "%")), vjust = -0.5, size = 5) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1)) +
+  labs(title = "Model Accuracy Comparison", x = "Model", y = "Accuracy") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+

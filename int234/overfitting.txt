@@ -1,0 +1,5 @@
+//Underfitting and overfitting are two common challenges faced in machine learning
+
+Over Fitting: occurs when a model is too complex and memorizes the training data too well. This leads to good performance on the training set but poor performance on the test set.
+
+Under Fitting: Underfitting happens when a model is not good enough to understand all the details in the data. It’s like the model is too simple and misses important stuff.. This leads to poor performance on both the training and test sets
